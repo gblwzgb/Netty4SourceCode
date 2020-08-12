@@ -214,12 +214,14 @@ public class DefaultChannelPipeline implements ChannelPipeline {
             // If the registered is false it means that the channel was not registered on an eventloop yet.
             // In this case we add the context to the pipeline and add a task that will call
             // ChannelHandler.handlerAdded(...) once the channel is registered.
+            // 如果channel还没有注册到eventloop中，则先挂起handler，一旦注册完成，就会调用挂起handler的handlerAdded(...)方法
             if (!registered) {
                 newCtx.setAddPending();
                 callHandlerCallbackLater(newCtx, true);
                 return this;
             }
 
+            // 如果已经注册了，则异步调用handler的handlerAdded(...)方法
             EventExecutor executor = newCtx.executor();
             if (!executor.inEventLoop()) {
                 newCtx.setAddPending();
@@ -232,6 +234,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
                 return this;
             }
         }
+        // 如果在线程池中，则同步调用handler的handlerAdded(...)方法
         callHandlerAdded0(newCtx);
         return this;
     }
@@ -679,10 +682,13 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
     final void invokeHandlerAddedIfNeeded() {
         assert channel.eventLoop().inEventLoop();
-        if (firstRegistration) {
+        if (firstRegistration) {  // 第一次注册
+            // 非第一次注册了
             firstRegistration = false;
             // We are now registered to the EventLoop. It's time to call the callbacks for the ChannelHandlers,
             // that were added before the registration was done.
+
+            // 如果是第一次注册，则调用所有Handler接口的handlerAdded方法
             callHandlerAddedForAllHandlers();
         }
     }

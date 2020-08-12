@@ -762,8 +762,10 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         }
 
         boolean inEventLoop = inEventLoop();
+        // 添加到队列中
         addTask(task);
         if (!inEventLoop) {
+            // 如果线程没有启动，则启动之
             startThread();
             if (isShutdown() && removeTask(task)) {
                 reject();
@@ -859,6 +861,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         if (state == ST_NOT_STARTED) {
             if (STATE_UPDATER.compareAndSet(this, ST_NOT_STARTED, ST_STARTED)) {
                 try {
+                    // 启动线程池中的线程，执行后的线程，执行的本类的run方法。（有点绕）
                     doStartThread();
                 } catch (Throwable cause) {
                     STATE_UPDATER.set(this, ST_NOT_STARTED);

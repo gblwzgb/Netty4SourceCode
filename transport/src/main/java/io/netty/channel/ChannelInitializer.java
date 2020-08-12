@@ -24,6 +24,15 @@ import io.netty.util.internal.logging.InternalLoggerFactory;
 
 import java.util.concurrent.ConcurrentMap;
 
+/*
+ * channel初始化器
+ *
+ * 作用：用户通过实现该抽象类的initChannel方法，可以做一些附加操作，比如往pipeline中添加handler。
+ *
+ * 原理：一次性的handler，只在channel初始化时执行一次，执行完成后，会将自身从pipeline中移除。
+ *
+ */
+
 /**
  * A special {@link ChannelInboundHandler} which offers an easy way to initialize a {@link Channel} once it was
  * registered to its {@link EventLoop}.

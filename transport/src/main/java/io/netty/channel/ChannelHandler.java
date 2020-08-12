@@ -26,6 +26,119 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
+ * 处理I/O事件或拦截I/O操作，并将其转发到其ChannelPipeline中的下一个handler。
+ *
+ * 子类型
+ * ChannelHandler本身不提供许多方法，但是通常你必须实现其子类型之一：
+ * ChannelInboundHandler处理输入的I/O事件
+ * ChannelOutboundHandler处理输出的I/O操作
+ *
+ * 另外，为了您的方便，提供了以下适配器类：
+ * ChannelInboundHandlerAdapter处理输入的I/O事件
+ * ChannelOutboundHandlerAdapter处理输出的I/O操作
+ * ChannelDuplexHandler处理输入、输出事件
+ *
+ * 有关更多信息，请参阅每个子类型的文档。
+ *
+ * 上下文对象
+ * ChannelHandler随ChannelHandlerContext对象一起提供。
+ * ChannelHandler应该通过上下文对象与其所属的ChannelPipeline进行交互。
+ * 使用上下文对象，ChannelHandler可以在上游或下游传递事件，动态修改pipeline或存储特定于handler的信息（使用AttributeKeys）。
+ *
+ * 状态管理
+ * ChannelHandler通常需要存储一些状态信息。推荐的最简单方法是使用成员变量：
+ *    public interface Message {
+ *        // your methods here
+ *    }
+ *
+ *    public class DataServerHandler extends SimpleChannelInboundHandler<Message> {
+ *
+ *        private boolean loggedIn;
+ *
+ *         @Override
+ *        public void channelRead0(ChannelHandlerContext ctx, Message message) {
+ *            if (message instanceof LoginMessage) {
+ *                authenticate((LoginMessage) message);
+ *                loggedIn = true;
+ *            } else (message instanceof GetDataMessage) {
+ *                if (loggedIn) {
+ *                    ctx.writeAndFlush(fetchSecret((GetDataMessage) message));
+ *                } else {
+ *                    fail();
+ *                }
+ *            }
+ *        }
+ *        ...
+ *    }
+ *
+ * 因为handler实例具有专用于一个连接的状态变量，
+ * 所以您必须为每个新通道创建一个新的处理程序实例，
+ * 以避免竞争状态，未经身份验证的客户端可以获取机密信息：
+ *   // Create a new handler instance per channel.
+ *    // See ChannelInitializer.initChannel(Channel).
+ *    public class DataServerInitializer extends ChannelInitializer<Channel> {
+ *         @Override
+ *        public void initChannel(Channel channel) {
+ *            channel.pipeline().addLast("handler", new DataServerHandler());
+ *        }
+ *    }
+ *
+ *
+ * 使用AttributeKeys
+ * 尽管建议使用成员变量来存储handler的状态，但是由于某些原因，您可能不想创建许多handler实例。
+ * 在这种情况下，可以使用ChannelHandlerContext提供的AttributeKeys：
+ *    public interface Message {
+ *        // your methods here
+ *    }
+ *
+ *     @Sharable
+ *    public class DataServerHandler extends SimpleChannelInboundHandler<Message> {
+ *        private final AttributeKey<Boolean> auth =
+ *              AttributeKey.valueOf("auth");
+ *
+ *         @Override
+ *        public void channelRead(ChannelHandlerContext ctx, Message message) {
+ *            Attribute<Boolean> attr = ctx.attr(auth);
+ *            if (message instanceof LoginMessage) {
+ *                authenticate((LoginMessage) o);
+ *                attr.set(true);
+ *            } else (message instanceof GetDataMessage) {
+ *                if (Boolean.TRUE.equals(attr.get())) {
+ *                    ctx.writeAndFlush(fetchSecret((GetDataMessage) o));
+ *                } else {
+ *                    fail();
+ *                }
+ *            }
+ *        }
+ *        ...
+ *    }
+ *
+ * 现在，handler的状态已附加到ChannelHandlerContext上，您可以将相同的handler实例添加到不同的管道中：
+ *    public class DataServerInitializer extends ChannelInitializer<Channel> {
+ *
+ *        private static final DataServerHandler SHARED = new DataServerHandler();
+ *
+ *         @Override
+ *        public void initChannel(Channel channel) {
+ *            channel.pipeline().addLast("handler", SHARED);
+ *        }
+ *    }
+ *
+ *
+ * @Sharable 注解
+ * 在上面的使用AttributeKey的示例中，您可能已经注意到@Sharable注解。
+ * 如果使用@Sharable注释对ChannelHandler进行注释，则意味着您可以只创建一次处理程序的实例，
+ * 然后将其多次添加到一个或多个ChannelPipelines中，而不会出现竞争条件。
+ * 如果未指定此注释，则每次将其添加到管道时都必须创建一个新的处理程序实例，因为它具有未共享的状态，例如成员变量。
+ * 提供此注释是出于文档目的，就像JCIP注释一样
+ *
+ *
+ * 值得阅读的其他资源
+ * 请参考ChannelHandler和ChannelPipeline，以了解有关入站和出站操作，
+ * 它们之间有哪些根本区别，它们如何在管道中流动以及如何在应用程序中处理该操作的更多信息。
+ */
+
+/**
  * Handles an I/O event or intercepts an I/O operation, and forwards it to its next handler in
  * its {@link ChannelPipeline}.
  *
@@ -179,12 +292,14 @@ public interface ChannelHandler {
 
     /**
      * Gets called after the {@link ChannelHandler} was added to the actual context and it's ready to handle events.
+     * （译：在将ChannelHandler添加到实际上下文中并可以处理事件后被调用。）
      */
     void handlerAdded(ChannelHandlerContext ctx) throws Exception;
 
     /**
      * Gets called after the {@link ChannelHandler} was removed from the actual context and it doesn't handle events
      * anymore.
+     * （译：从实际上下文中删除ChannelHandler之后，将调用它，并且不再处理事件。）
      */
     void handlerRemoved(ChannelHandlerContext ctx) throws Exception;
 

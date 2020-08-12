@@ -27,6 +27,62 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 
+// https://www.oracle.com/java/technologies/intercepting-filter.html
+// 看下这个文章
+/**
+ * ChannelHandler的列表，用于处理或拦截Channel的入站事件和出站操作。
+ * ChannelPipeline实现了Intercepting Filter模式的高级形式，
+ * 使用户可以完全控制事件的处理方式以及管道中的ChannelHandlers如何进行交互。
+ *
+ *
+ * 建立pipeline
+ * 每个通道都有其自己的pipeline，并且在创建新通道时会自动创建它。
+ *
+ * 事件如何在pipeline中流动
+ * 下图描述了ChannelPipeline中的ChannelHandler通常如何处理I/O事件。
+ * I/O事件由ChannelInboundHandler或ChannelOutboundHandler处理，
+ * 并通过调用ChannelHandlerContext中定义的事件传播方法
+ * （例如ChannelHandlerContext.fireChannelRead(Object)和ChannelHandlerContext.write(Object)）转发到其最近的handler。
+ *
+ *                                     通过Channel或ChannelHandlerContext的IO请求
+ *                                                      |
+ *  +---------------------------------------------------+---------------+
+ *  |                           ChannelPipeline         |               |
+ *  |                                                  \|/              |
+ *  |    +---------------------+            +-----------+----------+    |
+ *  |    | Inbound Handler  N  |            | Outbound Handler  1  |    |
+ *  |    +----------+----------+            +-----------+----------+    |
+ *  |              /|\                                  |               |
+ *  |               |                                  \|/              |
+ *  |    +----------+----------+            +-----------+----------+    |
+ *  |    | Inbound Handler N-1 |            | Outbound Handler  2  |    |
+ *  |    +----------+----------+            +-----------+----------+    |
+ *  |              /|\                                  .               |
+ *  |               .                                   .               |
+ *  | ChannelHandlerContext.fireIN_EVT() ChannelHandlerContext.OUT_EVT()|
+ *  |        [ method call]                       [method call]         |
+ *  |               .                                   .               |
+ *  |               .                                  \|/              |
+ *  |    +----------+----------+            +-----------+----------+    |
+ *  |    | Inbound Handler  2  |            | Outbound Handler M-1 |    |
+ *  |    +----------+----------+            +-----------+----------+    |
+ *  |              /|\                                  |               |
+ *  |               |                                  \|/              |
+ *  |    +----------+----------+            +-----------+----------+    |
+ *  |    | Inbound Handler  1  |            | Outbound Handler  M  |    |
+ *  |    +----------+----------+            +-----------+----------+    |
+ *  |              /|\                                  |               |
+ *  +---------------+-----------------------------------+---------------+
+ *                  |                                  \|/
+ *  +---------------+-----------------------------------+---------------+
+ *  |               |                                   |               |
+ *  |       [ Socket.read() ]                    [ Socket.write() ]     |
+ *  |                                                                   |
+ *  |  Netty 内部的I/O线程 （传输实现）                                    |
+ *  +-------------------------------------------------------------------+
+ *
+ *
+ * /
 
 /**
  * A list of {@link ChannelHandler}s which handles or intercepts inbound events and outbound operations of a

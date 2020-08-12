@@ -55,6 +55,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
     private volatile SocketAddress localAddress;
     private final Map<ChannelOption<?>, Object> options = new LinkedHashMap<ChannelOption<?>, Object>();
     private final Map<AttributeKey<?>, Object> attrs = new LinkedHashMap<AttributeKey<?>, Object>();
+    // 父handler
     private volatile ChannelHandler handler;
 
     AbstractBootstrap() {
@@ -279,21 +280,23 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
     }
 
     private ChannelFuture doBind(final SocketAddress localAddress) {
+        // 初始化，然后异步注册channel到selector上。
         final ChannelFuture regFuture = initAndRegister();
         final Channel channel = regFuture.channel();
         if (regFuture.cause() != null) {
             return regFuture;
         }
 
-        if (regFuture.isDone()) {
+        if (regFuture.isDone()) {  // 如果异步注册完成了
             // At this point we know that the registration was complete and successful.
             ChannelPromise promise = channel.newPromise();
+            // 异步绑定端口
             doBind0(regFuture, channel, localAddress, promise);
             return promise;
-        } else {
+        } else {  // 异步注册还未完成
             // Registration future is almost always fulfilled already, but just in case it's not.
             final PendingRegistrationPromise promise = new PendingRegistrationPromise(channel);
-            regFuture.addListener(new ChannelFutureListener() {
+            regFuture.addListener(new ChannelFutureListener() {  // 在add完成后，会检测一次future有没有完成的。检测到完成则会立马通知listener。
                 @Override
                 public void operationComplete(ChannelFuture future) throws Exception {
                     Throwable cause = future.cause();
@@ -304,8 +307,11 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
                     } else {
                         // Registration was successful, so set the correct executor to use.
                         // See https://github.com/netty/netty/issues/2586
+
+                        // 注册完成了
                         promise.registered();
 
+                        // 绑定到监听端口上。
                         doBind0(regFuture, channel, localAddress, promise);
                     }
                 }
@@ -318,6 +324,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         Channel channel = null;
         try {
             channel = channelFactory.newChannel();
+            // 初始化，做一些准备工作，由子类实现
             init(channel);
         } catch (Throwable t) {
             if (channel != null) {
@@ -330,6 +337,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
             return new DefaultChannelPromise(new FailedChannel(), GlobalEventExecutor.INSTANCE).setFailure(t);
         }
 
+        // 异步注册，将底层channel注册到底层的Selector上。（Boss线程池）
         ChannelFuture regFuture = config().group().register(channel);
         if (regFuture.cause() != null) {
             if (channel.isRegistered()) {
@@ -359,6 +367,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
 
         // This method is invoked before channelRegistered() is triggered.  Give user handlers a chance to set up
         // the pipeline in its channelRegistered() implementation.
+        // 异步绑定监听端口
         channel.eventLoop().execute(new Runnable() {
             @Override
             public void run() {

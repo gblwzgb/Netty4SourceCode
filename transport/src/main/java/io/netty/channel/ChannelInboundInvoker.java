@@ -23,6 +23,10 @@ public interface ChannelInboundInvoker {
      * This will result in having the  {@link ChannelInboundHandler#channelRegistered(ChannelHandlerContext)} method
      * called of the next  {@link ChannelInboundHandler} contained in the  {@link ChannelPipeline} of the
      * {@link Channel}.
+     *
+     * （译：一个通道已注册到其EventLoop。
+     *      这将导致Channel的ChannelPipeline中包含的下一个ChannelInboundHandler
+     *      调用ChannelInboundHandler.channelRegistered(ChannelHandlerContext)方法。）
      */
     ChannelInboundInvoker fireChannelRegistered();
 

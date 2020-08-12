@@ -385,6 +385,8 @@ public final class NioEventLoop extends SingleThreadEventLoop {
     protected void run() {
         for (;;) {
             try {
+                // 如果有任务，则执行一次非阻塞的selectNow，能否select到看缘分，此时不会进入case
+                // 如果没任务，进入SelectStrategy.SELECT
                 switch (selectStrategy.calculateStrategy(selectNowSupplier, hasTasks())) {
                     case SelectStrategy.CONTINUE:
                         continue;
@@ -429,11 +431,12 @@ public final class NioEventLoop extends SingleThreadEventLoop {
                 cancelledKeys = 0;
                 needsToSelectAgain = false;
                 final int ioRatio = this.ioRatio;
-                if (ioRatio == 100) {
+                if (ioRatio == 100) {  //
                     try {
                         processSelectedKeys();
                     } finally {
                         // Ensure we always run tasks.
+                        // 执行所有task
                         runAllTasks();
                     }
                 } else {
@@ -443,6 +446,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
                     } finally {
                         // Ensure we always run tasks.
                         final long ioTime = System.nanoTime() - ioStartTime;
+                        // 给你一定的时候，执行task。
                         runAllTasks(ioTime * (100 - ioRatio) / ioRatio);
                     }
                 }
@@ -521,6 +525,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
         Iterator<SelectionKey> i = selectedKeys.iterator();
         for (;;) {
             final SelectionKey k = i.next();
+            // 获取SelectionKey上关联的对象
             final Object a = k.attachment();
             i.remove();
 

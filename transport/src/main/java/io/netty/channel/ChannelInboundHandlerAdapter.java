@@ -16,6 +16,18 @@
 package io.netty.channel;
 
 /**
+ * ChannelInboundHandler实现的抽象基类，它提供所有方法的实现。
+ *
+ * 此实现只是将操作转发到ChannelPipeline中的下一个ChannelHandler。
+ * 子类可能会覆盖方法实现以对此进行更改。
+ *
+ * 请注意，channelRead(ChannelHandlerContext，Object)方法自动返回后，不会释放消息。
+ * 如果您正在寻找一个ChannelInboundHandler实现，该实现会自动释放收到的消息，请参阅SimpleChannelInboundHandler。
+ */
+// 存在的意义，比如我自定义一个类实现了ChannelInboundHandler，但是我不想每个方法都实现，咋办。
+// 那就继承这个接口，然后重写某几个需要的方法就行了。
+
+/**
  * Abstract base class for {@link ChannelInboundHandler} implementations which provide
  * implementations of all of their methods.
  *

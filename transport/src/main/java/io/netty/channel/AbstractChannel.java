@@ -420,6 +420,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
     /**
      * {@link Unsafe} implementation which sub-classes must extend and use.
      */
+    // 重要类!
     protected abstract class AbstractUnsafe implements Unsafe {
 
         private volatile ChannelOutboundBuffer outboundBuffer = new ChannelOutboundBuffer(AbstractChannel.this);
@@ -501,15 +502,19 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                     return;
                 }
                 boolean firstRegistration = neverRegistered;
+                // 底层注册，由子类实现
                 doRegister();
                 neverRegistered = false;
                 registered = true;
 
                 // Ensure we call handlerAdded(...) before we actually notify the promise. This is needed as the
                 // user may already fire events through the pipeline in the ChannelFutureListener.
+                // 注册成功后，需要调用那些挂起的handler。（本来要执行handlerAdded(...)方法的，但是由于没有注册完成，所以handlerAdded(...)被延缓到现在执行）
                 pipeline.invokeHandlerAddedIfNeeded();
 
+                // promise设置为成功，通知listener
                 safeSetSuccess(promise);
+                // 执行ChannelRegistered事件
                 pipeline.fireChannelRegistered();
                 // Only fire a channelActive if the channel has never been registered. This prevents firing
                 // multiple channel actives if the channel is deregistered and re-registered.

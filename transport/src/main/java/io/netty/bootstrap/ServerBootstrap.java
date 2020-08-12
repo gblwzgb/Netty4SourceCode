@@ -166,18 +166,23 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
             currentChildAttrs = childAttrs.entrySet().toArray(newAttrArray(0));
         }
 
+        // 在pipeline后面追加一个handler--ChannelInitializer
         p.addLast(new ChannelInitializer<Channel>() {
             @Override
-            public void initChannel(final Channel ch) throws Exception {
+            public void initChannel(final Channel ch) throws Exception {  // 这个方法会在注册成功后，被调到
                 final ChannelPipeline pipeline = ch.pipeline();
+                // 取到父handler，即AbstractBootstrap中的handler（注意不要和ServerBootstrap中的childHandler搞混淆了）
                 ChannelHandler handler = config.handler();
                 if (handler != null) {
+                    // 添加到该pipeline的尾部。
                     pipeline.addLast(handler);
                 }
 
+                // 丢到boss的线程池中
                 ch.eventLoop().execute(new Runnable() {
                     @Override
                     public void run() {
+                        // 异步地在pipeline后面追加一个handler--ServerBootstrapAcceptor
                         pipeline.addLast(new ServerBootstrapAcceptor(
                                 ch, currentChildGroup, currentChildHandler, currentChildOptions, currentChildAttrs));
                     }
@@ -190,6 +195,7 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
     public ServerBootstrap validate() {
         super.validate();
         if (childHandler == null) {
+            // 子handler必须设置
             throw new IllegalStateException("childHandler not set");
         }
         if (childGroup == null) {
@@ -209,6 +215,7 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
         return new Map.Entry[size];
     }
 
+    // Acceptor，处理客户端的连接请求。
     private static class ServerBootstrapAcceptor extends ChannelInboundHandlerAdapter {
 
         private final EventLoopGroup childGroup;
@@ -252,6 +259,7 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
             }
 
             try {
+                // 将客户端的连接请求，异步注册到selector上。（worker线程池）
                 childGroup.register(child).addListener(new ChannelFutureListener() {
                     @Override
                     public void operationComplete(ChannelFuture future) throws Exception {

@@ -55,10 +55,10 @@ public final class EchoServer {
         try {
             ServerBootstrap b = new ServerBootstrap();
             b.group(bossGroup, workerGroup)
-             .channel(NioServerSocketChannel.class)
+             .channel(NioServerSocketChannel.class)  // 这里可以替换成其他的ServerSocketChannel
              .option(ChannelOption.SO_BACKLOG, 100)
-             .handler(new LoggingHandler(LogLevel.INFO))
-             .childHandler(new ChannelInitializer<SocketChannel>() {
+             .handler(new LoggingHandler(LogLevel.INFO))  // 父handler
+             .childHandler(new ChannelInitializer<SocketChannel>() {  // 子handler
                  @Override
                  public void initChannel(SocketChannel ch) throws Exception {
                      ChannelPipeline p = ch.pipeline();
@@ -71,9 +71,11 @@ public final class EchoServer {
              });
 
             // Start the server.
+            // 启动server，同步等待知道完成
             ChannelFuture f = b.bind(PORT).sync();
 
             // Wait until the server socket is closed.
+            // 阻塞，知道关闭future完成
             f.channel().closeFuture().sync();
         } finally {
             // Shut down all event loops to terminate all threads.
