@@ -38,6 +38,8 @@ public interface EventLoopGroup extends EventExecutorGroup {
     /**
      * Register a {@link Channel} with this {@link EventLoop} using a {@link ChannelFuture}. The passed
      * {@link ChannelFuture} will get notified once the registration was complete and also will get returned.
+     * （译：使用ChannelFuture在此EventLoop中注册一个channel。
+     *      注册完成后，将通过传递的ChannelFuture通知，并且还将返回。）
      */
     ChannelFuture register(ChannelPromise promise);
 

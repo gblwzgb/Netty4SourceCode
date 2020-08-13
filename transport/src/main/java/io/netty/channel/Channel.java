@@ -26,6 +26,34 @@ import io.netty.util.AttributeMap;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 
+/**
+ * 与网络套接字或能够进行I/O操作（例如读取，写入，连接和绑定）的组件的联系。
+ *
+ * channel为用户提供：
+ * - 通道的当前状态（例如，是否打开？是否已连接？），
+ * - 通道的配置参数（例如，接收缓冲区大小），
+ * - 通道支持的I/O操作（例如，读取，写入，连接和绑定） ），
+ * - 以及处理所有与该通道相关联的所有I/O事件和请求的ChannelPipeline。
+ *
+ * 》》 所有I/O操作都是异步的。
+ * Netty中的所有I/O操作都是异步的。
+ * 这意味着任何I/O调用都将立即返回，而不能保证所请求的I/O操作在调用结束时已完成。
+ * 取而代之的是，您将返回一个ChannelFuture实例，该实例将在请求的I/O操作成功，失败或取消时通知您。
+ *
+ * 》》 channel是分层的
+ * channel可以具有父项，具体取决于其创建方式。
+ * 例如，ServerSocketChannel接收的SocketChannel将返回ServerSocketChannel作为其parent()的父级。
+ * 层次结构的语义取决于Channel所属的传输实现。
+ * 例如，您可以编写一个新的Channel实现，以创建共享一个套接字连接的子通道，就像BEEP和SSH一样。
+ *
+ * 》》 下调访问特定于传输的操作
+ * 某些传输公开了特定于该传输的其他操作。将Channel向下转换为子类型以调用此类操作。
+ * 例如，使用旧的I/O数据报传输，DatagramChannel提供了多播加入/离开操作。
+ *
+ * 》》 释放资源
+ * 一旦完成Channel，调用close()或close(ChannelPromise)释放所有资源很重要。
+ * 这样可确保以适当的方式（即文件句柄）释放所有资源。
+ */
 
 /**
  * A nexus to a network socket or a component which is capable of I/O

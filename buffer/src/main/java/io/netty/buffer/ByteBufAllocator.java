@@ -44,6 +44,7 @@ public interface ByteBufAllocator {
 
     /**
      * Allocate a {@link ByteBuf}, preferably a direct buffer which is suitable for I/O.
+     * （译：分配ByteBuf，最好是适合I/O的直接缓冲区。）
      */
     ByteBuf ioBuffer();
 

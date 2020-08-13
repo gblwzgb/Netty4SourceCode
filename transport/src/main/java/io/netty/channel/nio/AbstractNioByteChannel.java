@@ -225,7 +225,7 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
                 }
                 return 1;
             }
-        } else if (msg instanceof FileRegion) {
+        } else if (msg instanceof FileRegion) {  // 零拷贝？
             FileRegion region = (FileRegion) msg;
             if (region.transferred() >= region.count()) {
                 in.remove();

@@ -49,6 +49,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
+ * SingleThreadEventLoop实现，将channel注册到Selector，并且在事件循环中对它们进行多路复用。
+ */
+
+/**
  * {@link SingleThreadEventLoop} implementation which register the {@link Channel}'s to a
  * {@link Selector} and so does the multi-plexing of these in the event loop.
  *

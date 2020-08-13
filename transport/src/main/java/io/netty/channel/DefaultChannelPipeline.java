@@ -42,6 +42,7 @@ import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 /**
  * The default {@link ChannelPipeline} implementation.  It is usually created
  * by a {@link Channel} implementation when the {@link Channel} is created.
+ * （译：默认的ChannelPipeline实现。通常在创建Channel时由Channel实现创建它。）
  */
 public class DefaultChannelPipeline implements ChannelPipeline {
 
@@ -157,21 +158,26 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         final AbstractChannelHandlerContext newCtx;
         synchronized (this) {
             checkMultiplicity(handler);
+            // 没指定名称则生成一个
             name = filterName(name, handler);
 
+            // 创建一个Context
             newCtx = newContext(group, name, handler);
 
+            // 添加到链表的第二个节点（第一个节点永远是HeadContext）
             addFirst0(newCtx);
 
             // If the registered is false it means that the channel was not registered on an eventloop yet.
             // In this case we add the context to the pipeline and add a task that will call
             // ChannelHandler.handlerAdded(...) once the channel is registered.
             if (!registered) {
+                // 如果channel还没注册，则设置一个等待的回调
                 newCtx.setAddPending();
                 callHandlerCallbackLater(newCtx, true);
                 return this;
             }
 
+            // 如果channel已经注册，则执行handlerAdded事件
             EventExecutor executor = newCtx.executor();
             if (!executor.inEventLoop()) {
                 newCtx.setAddPending();
@@ -1270,7 +1276,8 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         }
     }
 
-    // A special catch-all handler that handles both bytes and messages.
+    // A special catch-all handler that handles both bytes and messages.  （译：一个特殊的包罗万象的处理程序，可以处理字节和消息。）
+    // 入站的handler
     final class TailContext extends AbstractChannelHandlerContext implements ChannelInboundHandler {
 
         TailContext(DefaultChannelPipeline pipeline) {
@@ -1331,6 +1338,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         }
     }
 
+    // 出站的HandlerContext
     final class HeadContext extends AbstractChannelHandlerContext
             implements ChannelOutboundHandler, ChannelInboundHandler {
 
@@ -1394,6 +1402,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
         @Override
         public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
+            // 出站事件的最后一站，写入底层
             unsafe.write(msg, promise);
         }
 
@@ -1437,6 +1446,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
         @Override
         public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+            // 直接转发给下一个
             ctx.fireChannelRead(msg);
         }
 

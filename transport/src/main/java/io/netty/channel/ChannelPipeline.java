@@ -81,11 +81,111 @@ import java.util.NoSuchElementException;
  *  |  Netty 内部的I/O线程 （传输实现）                                    |
  *  +-------------------------------------------------------------------+
  *
+ * 入站事件由入站处理程序按自下而上的方向进行处理，如图中左侧所示。
+ * 入站handler通常处理图底部的I/O线程生成的入站数据。
+ * 通常通过实际的输入操作（例如SocketChannel.read(ByteBuffer)）从远程peer读取入站数据。
+ * 如果入站事件超出了顶部入站handler的范围，则将其静默丢弃，或者在需要引起注意时将其记录下来。
+ * 出站处理程序由出站处理程序按自上而下的方向处理出站事件，如图中右侧所示。
+ * 出站处理程序通常会生成或转换出站流量，例如写请求。
+ * 如果出站事件超出了底部出站处理程序，则由与Channel关联的I/O线程处理。
+ * I/O线程通常执行实际的输出操作，例如SocketChannel.write(ByteBuffer)。
+ * 例如，假设我们创建了以下pipeline：
  *
- * /
+ *    ChannelPipeline p = ...;
+ *    p.addLast("1", new InboundHandlerA());
+ *    p.addLast("2", new InboundHandlerB());
+ *    p.addLast("3", new OutboundHandlerA());
+ *    p.addLast("4", new OutboundHandlerB());
+ *    p.addLast("5", new InboundOutboundHandlerX());
+ *
+ * 在上面的示例中，其名称以Inbound开头的类表示它是一个入站处理程序。
+ * 名称以Outbound开头的类表示它是一个出站处理程序。
+ * 在给定的示例配置中，事件进入时，处理程序评估顺序为1、2、3、4、5。
+ * 当事件出站时，顺序为5、4、3、2、1。
+ * 根据此原理，ChannelPipeline跳过某些处理程序的求值，以缩短堆栈深度：
+ * - 3和4没有实现ChannelInboundHandler，因此入站事件的实际评估顺序为：1、2和5。
+ * - 1和2没有实现ChannelOutboundHandler，因此出站事件的实际评估顺序为：5、4和3。
+ * - 如果5同时实现ChannelInboundHandler和ChannelOutboundHandler，则入站和出站事件的评估顺序可能分别为125和543。
+ *
+ *
+ * 将事件转发到下一个处理程序
+ * 如您在图中所示，您可能会注意到，处理程序必须调用ChannelHandlerContext中的事件传播方法，以将事件转发到其下一个处理程序。这些方法包括：
+ * 入站事件传播方法：
+ *      ChannelHandlerContext.fireChannelRegistered()
+ *      ChannelHandlerContext.fireChannelActive()
+ *      ChannelHandlerContext.fireChannelRead(Object)
+ *      ChannelHandlerContext.fireChannelReadComplete()
+ *      ChannelHandlerContext.fireExceptionCaught(Throwable)
+ *      ChannelHandlerContext.fireUserEventTriggered(Object)
+ *      ChannelHandlerContext.fireChannelWritabilityChanged()
+ *      ChannelHandlerContext.fireChannelInactive()
+ *      ChannelHandlerContext.fireChannelUnregistered()
+ * 出站事件传播方法：
+ *      ChannelHandlerContext.bind(SocketAddress, ChannelPromise)
+ *      ChannelHandlerContext.connect(SocketAddress, SocketAddress, ChannelPromise)
+ *      ChannelHandlerContext.write(Object, ChannelPromise)
+ *      ChannelHandlerContext.flush()
+ *      ChannelHandlerContext.read()
+ *      ChannelHandlerContext.disconnect(ChannelPromise)
+ *      ChannelHandlerContext.close(ChannelPromise)
+ *      ChannelHandlerContext.deregister(ChannelPromise)
+ *
+ * 以下示例说明了事件传播通常是如何完成的：
+ *    public class MyInboundHandler extends ChannelInboundHandlerAdapter {
+ *         @Override
+ *        public void channelActive(ChannelHandlerContext ctx) {
+ *            System.out.println("Connected!");
+ *            ctx.fireChannelActive();
+ *        }
+ *    }
+ *
+ *    public class MyOutboundHandler extends ChannelOutboundHandlerAdapter {
+ *         @Override
+ *        public void close(ChannelHandlerContext ctx, ChannelPromise promise) {
+ *            System.out.println("Closing ..");
+ *            ctx.close(promise);
+ *        }
+ *    }
+ *
+ *
+ * 构建一个pipeline
+ *
+ * 假定用户在管道中具有一个或多个ChannelHandler，以接收I/O事件（例如，读取）并请求I/O操作（例如，写入和关闭）。
+ * 例如，典型的服务器在每个通道的管道中将具有以下处理程序，但是您的里程可能会因协议和业务逻辑的复杂性和特征而有所不同：
+ * 1. 协议解码器（Protocol Decoder）-将二进制数据（例如ByteBuf）转换为Java对象。
+ * 2. 协议编码器（Protocol Encoder）-将Java对象转换为二进制数据。
+ * 3. 业务逻辑处理程序-执行实际的业务逻辑（例如，数据库访问）。
+ *
+ * 它可以表示为以下示例所示：
+ *    static final EventExecutorGroup group = new DefaultEventExecutorGroup(16);
+ *    ...
+ *
+ *    ChannelPipeline pipeline = ch.pipeline();
+ *
+ *    pipeline.addLast("decoder", new MyProtocolDecoder());
+ *    pipeline.addLast("encoder", new MyProtocolEncoder());
+ *
+ *    // 告诉pipeline在与I/O线程不同的线程中运行MyBusinessLogicHandler的事件处理程序方法，
+ *    // 以使I/O线程不会被耗时的任务阻塞。如果您的业务逻辑完全异步或很快完成，则无需指定组。
+ *    pipeline.addLast(group, "handler", new MyBusinessLogicHandler());
+ *
+ *
+ * 线程安全
+ * 由于ChannelPipeline是线程安全的，因此可以随时添加或删除ChannelHandler。
+ * 例如，您可以在即将交换敏感信息时插入加密处理程序，并在交换后将其删除。
+ */
+
+/*
+ * 入站：队头->队尾
+ * 出站：队尾->队头
+ * io.netty.channel.AbstractChannelHandlerContext.findContextInbound、
+ * io.netty.channel.AbstractChannelHandlerContext.findContextOutbound
+ * 中来决定是找next还是prev。
+ */
+
 
 /**
- * A list of {@link ChannelHandler}s which handles or intercepts inbound events and outbound operations of a
+ * A list of {@link ChannelHandler}s which handles or interc
  * {@link Channel}.  {@link ChannelPipeline} implements an advanced form of the
  * <a href="http://www.oracle.com/technetwork/java/interceptingfilter-142169.html">Intercepting Filter</a> pattern
  * to give a user full control over how an event is handled and how the {@link ChannelHandler}s in a pipeline

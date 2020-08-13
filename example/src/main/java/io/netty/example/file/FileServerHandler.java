@@ -51,6 +51,7 @@ public class FileServerHandler extends SimpleChannelInboundHandler<String> {
         ctx.write("OK: " + raf.length() + '\n');
         if (ctx.pipeline().get(SslHandler.class) == null) {
             // SSL not enabled - can use zero-copy file transfer.
+            // 没开启SSL - 可以使用零拷贝文件传输
             ctx.write(new DefaultFileRegion(raf.getChannel(), 0, length));
         } else {
             // SSL enabled - cannot use zero-copy file transfer.

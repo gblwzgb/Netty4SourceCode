@@ -37,6 +37,11 @@ import java.util.NoSuchElementException;
 import static io.netty.util.internal.ObjectUtil.checkNotNull;
 
 /**
+ * 将多个缓冲区显示为单个合并缓冲区的虚拟缓冲区。
+ * 建议使用ByteBufAllocator.compositeBuffer()或Unpooled.wrappedBuffer(ByteBuf ...)，而不是显式调用构造函数。
+ */
+// 零拷贝的一种？
+/**
  * A virtual buffer which shows multiple buffers as a single merged buffer.  It is recommended to use
  * {@link ByteBufAllocator#compositeBuffer()} or {@link Unpooled#wrappedBuffer(ByteBuf...)} instead of calling the
  * constructor explicitly.

@@ -22,6 +22,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * The result of an asynchronous operation.
  */
+// 在JDK原生的Future上做了增强
 @SuppressWarnings("ClassNameSameAsAncestorName")
 public interface Future<V> extends java.util.concurrent.Future<V> {
 
@@ -29,11 +30,13 @@ public interface Future<V> extends java.util.concurrent.Future<V> {
      * Returns {@code true} if and only if the I/O operation was completed
      * successfully.
      */
+    // 是否完成了
     boolean isSuccess();
 
     /**
      * returns {@code true} if and only if the operation can be cancelled via {@link #cancel(boolean)}.
      */
+    // 是否可取消
     boolean isCancellable();
 
     /**
@@ -52,6 +55,7 @@ public interface Future<V> extends java.util.concurrent.Future<V> {
      * {@linkplain #isDone() done}.  If this future is already
      * completed, the specified listener is notified immediately.
      */
+    // 添加future完成后的回调，如果已经是完成态了，则回调会立即被触发
     Future<V> addListener(GenericFutureListener<? extends Future<? super V>> listener);
 
     /**
@@ -60,6 +64,7 @@ public interface Future<V> extends java.util.concurrent.Future<V> {
      * {@linkplain #isDone() done}.  If this future is already
      * completed, the specified listeners are notified immediately.
      */
+    // 添加future完成后的回调，如果已经是完成态了，则回调会立即被触发
     Future<V> addListeners(GenericFutureListener<? extends Future<? super V>>... listeners);
 
     /**
@@ -69,6 +74,7 @@ public interface Future<V> extends java.util.concurrent.Future<V> {
      * listener is not associated with this future, this method
      * does nothing and returns silently.
      */
+    // 移除回调
     Future<V> removeListener(GenericFutureListener<? extends Future<? super V>> listener);
 
     /**
@@ -78,12 +84,14 @@ public interface Future<V> extends java.util.concurrent.Future<V> {
      * listeners are not associated with this future, this method
      * does nothing and returns silently.
      */
+    // 移除回调
     Future<V> removeListeners(GenericFutureListener<? extends Future<? super V>>... listeners);
 
     /**
      * Waits for this future until it is done, and rethrows the cause of the failure if this future
      * failed.
      */
+    // 同步等待future完成，相比await()，多了一个把异常抛出的功能
     Future<V> sync() throws InterruptedException;
 
     /**
