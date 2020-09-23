@@ -307,6 +307,7 @@ public interface Channel extends AttributeMap, ChannelOutboundInvoker, Comparabl
 
         /**
          * Schedules a write operation.
+         * 安排写操作。
          */
         void write(Object msg, ChannelPromise promise);
 

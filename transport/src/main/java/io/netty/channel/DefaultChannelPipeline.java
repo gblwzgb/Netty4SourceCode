@@ -992,21 +992,25 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
     @Override
     public final ChannelFuture bind(SocketAddress localAddress) {
+        // 绑定算出站事件，从队尾到队头
         return tail.bind(localAddress);
     }
 
     @Override
     public final ChannelFuture connect(SocketAddress remoteAddress) {
+        // 出站事件，从队尾到队头
         return tail.connect(remoteAddress);
     }
 
     @Override
     public final ChannelFuture connect(SocketAddress remoteAddress, SocketAddress localAddress) {
+        // 出站事件，从队尾到队头
         return tail.connect(remoteAddress, localAddress);
     }
 
     @Override
     public final ChannelFuture disconnect() {
+        // 出站事件，从队尾到队头
         return tail.disconnect();
     }
 
@@ -1059,12 +1063,14 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
     @Override
     public final ChannelPipeline read() {
+        // todo：这个和 fireChannelRead 的区别
         tail.read();
         return this;
     }
 
     @Override
     public final ChannelFuture write(Object msg) {
+        // 出站事件，从队尾到队头
         return tail.write(msg);
     }
 
@@ -1436,6 +1442,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         public void channelActive(ChannelHandlerContext ctx) throws Exception {
             ctx.fireChannelActive();
 
+            /** 重要，这里会注册感兴趣的事件 */
             readIfIsAutoRead();
         }
 

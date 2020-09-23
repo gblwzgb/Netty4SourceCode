@@ -16,6 +16,11 @@
 package io.netty.buffer;
 
 /**
+ * 该实现负责分配缓冲区。
+ * 该接口的实现应该是线程安全的。
+ */
+
+/**
  * Implementations are responsible to allocate buffers. Implementations of this interface are expected to be
  * thread-safe.
  */

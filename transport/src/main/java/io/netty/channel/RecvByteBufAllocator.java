@@ -23,13 +23,19 @@ import io.netty.util.internal.UnstableApi;
 import static io.netty.util.internal.ObjectUtil.checkNotNull;
 
 /**
+ * 分配一个新的接收缓冲区，其容量可能足够大以读取所有入站数据，而又足够小而不会浪费其空间。
+ */
+
+/**
  * Allocates a new receive buffer whose capacity is probably large enough to read all inbound data and small enough
  * not to waste its space.
  */
 public interface RecvByteBufAllocator {
+
     /**
      * Creates a new handle.  The handle provides the actual operations and keeps the internal information which is
      * required for predicting an optimal buffer capacity.
+     * （创建一个新的 handle。handle 提供实际操作，并保留预测最佳缓冲区容量所需的内部信息。）
      */
     Handle newHandle();
 
@@ -38,15 +44,18 @@ public interface RecvByteBufAllocator {
      */
     @Deprecated
     interface Handle {
+
         /**
          * Creates a new receive buffer whose capacity is probably large enough to read all inbound data and small
          * enough not to waste its space.
+         * （创建一个新的接收缓冲区，其容量可能足够大以读取所有入站数据，而又足够小而不会浪费其空间。）
          */
         ByteBuf allocate(ByteBufAllocator alloc);
 
         /**
          * Similar to {@link #allocate(ByteBufAllocator)} except that it does not allocate anything but just tells the
          * capacity.
+         * （类似于allocate（ByteBufAllocator），除了它不分配任何东西，只告诉容量。）
          */
         int guess();
 

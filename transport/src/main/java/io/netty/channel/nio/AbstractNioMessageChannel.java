@@ -63,6 +63,7 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
         public void read() {
             assert eventLoop().inEventLoop();
             final ChannelConfig config = config();
+            // 这个是外部类的方法
             final ChannelPipeline pipeline = pipeline();
             final RecvByteBufAllocator.Handle allocHandle = unsafe().recvBufAllocHandle();
             allocHandle.reset(config);
@@ -72,7 +73,7 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
             try {
                 try {
                     do {
-                        // 创建一个客户端的socketChannel
+                        // 创建一个客户端的 socketChannel
                         int localRead = doReadMessages(readBuf);
                         if (localRead == 0) {
                             // 没读到

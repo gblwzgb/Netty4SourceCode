@@ -54,6 +54,8 @@ public class DefaultChannelConfig implements ChannelConfig {
     protected final Channel channel;
 
     private volatile ByteBufAllocator allocator = ByteBufAllocator.DEFAULT;
+    // 默认是 AdaptiveRecvByteBufAllocator
+    // 在 io.netty.channel.DefaultChannelConfig.DefaultChannelConfig(io.netty.channel.Channel) 中创建
     private volatile RecvByteBufAllocator rcvBufAllocator;
     private volatile MessageSizeEstimator msgSizeEstimator = DEFAULT_MSG_SIZE_ESTIMATOR;
 

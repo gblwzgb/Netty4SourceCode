@@ -46,6 +46,7 @@ import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
  * Abstract base class for {@link OrderedEventExecutor}'s that execute all its submitted tasks in a single thread.
  *
  */
+// 所有提交的任务，都在单个线程中执行
 public abstract class SingleThreadEventExecutor extends AbstractScheduledEventExecutor implements OrderedEventExecutor {
 
     static final int DEFAULT_MAX_PENDING_EXECUTOR_TASKS = Math.max(16,
@@ -389,6 +390,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
      * Poll all tasks from the task queue and run them via {@link Runnable#run()} method.  This method stops running
      * the tasks in the task queue and returns if it ran longer than {@code timeoutNanos}.
      */
+    // 单线程执行 task
     protected boolean runAllTasks(long timeoutNanos) {
         fetchFromScheduledTaskQueue();
         Runnable task = pollTask();
@@ -861,7 +863,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         if (state == ST_NOT_STARTED) {
             if (STATE_UPDATER.compareAndSet(this, ST_NOT_STARTED, ST_STARTED)) {
                 try {
-                    // 启动线程池中的线程，执行后的线程，执行的本类的run方法。（有点绕）
+                    // 使用 executor 线程池，来启动当前线程池
                     doStartThread();
                 } catch (Throwable cause) {
                     STATE_UPDATER.set(this, ST_NOT_STARTED);

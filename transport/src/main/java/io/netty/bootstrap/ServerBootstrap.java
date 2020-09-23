@@ -139,6 +139,8 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
 
     @Override
     void init(Channel channel) throws Exception {
+        // 这里的 channel 是 ServerChannel，由泛型保证用户不会弄错成客户端channel
+
         final Map<ChannelOption<?>, Object> options = options0();
         synchronized (options) {
             setChannelOptions(channel, options, logger);
@@ -166,7 +168,7 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
             currentChildAttrs = childAttrs.entrySet().toArray(newAttrArray(0));
         }
 
-        // 在pipeline后面追加一个handler--ChannelInitializer
+        // 在 pipeline 后面追加一个 handler -- ChannelInitializer
         p.addLast(new ChannelInitializer<Channel>() {
             @Override
             public void initChannel(final Channel ch) throws Exception {  // 这个方法会在注册成功后，被调到
@@ -174,15 +176,15 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
                 // 取到父handler，即AbstractBootstrap中的handler（注意不要和ServerBootstrap中的childHandler搞混淆了）
                 ChannelHandler handler = config.handler();
                 if (handler != null) {
-                    // 添加到该pipeline的尾部。
+                    // 添加到该 pipeline 的尾部。
                     pipeline.addLast(handler);
                 }
 
-                // 丢到boss的线程池中
+                // 丢到 boss 的线程池中
                 ch.eventLoop().execute(new Runnable() {
                     @Override
                     public void run() {
-                        // 异步地在pipeline后面追加一个handler--ServerBootstrapAcceptor
+                        // 异步地在 pipeline 后面追加一个 handler -- ServerBootstrapAcceptor
                         pipeline.addLast(new ServerBootstrapAcceptor(
                                 ch, currentChildGroup, currentChildHandler, currentChildOptions, currentChildAttrs));
                     }
@@ -248,6 +250,8 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
         @Override
         @SuppressWarnings("unchecked")
         public void channelRead(ChannelHandlerContext ctx, Object msg) {
+            // 这个 child 已经建立好了底层的 socket 连接
+            // 服务端和客户端的后续通信，就通过这个 channel
             final Channel child = (Channel) msg;
 
             child.pipeline().addLast(childHandler);
@@ -259,7 +263,8 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
             }
 
             try {
-                // 将客户端的连接请求，异步注册到selector上。（worker线程池）
+                // 将 child，异步注册到selector上。（worker线程池）
+                // todo：感兴趣事件是什么时候设置的？答：io.netty.channel.DefaultChannelPipeline.HeadContext.channelActive
                 childGroup.register(child).addListener(new ChannelFutureListener() {
                     @Override
                     public void operationComplete(ChannelFuture future) throws Exception {

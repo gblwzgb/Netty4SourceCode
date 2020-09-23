@@ -15,6 +15,7 @@
  */
 package io.netty.channel;
 
+// 定义一些列的触发方法
 public interface ChannelInboundInvoker {
 
     /**

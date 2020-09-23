@@ -42,8 +42,8 @@ import java.lang.annotation.Target;
  *
  * 上下文对象
  * ChannelHandler随ChannelHandlerContext对象一起提供。
- * ChannelHandler应该通过上下文对象与其所属的ChannelPipeline进行交互。
- * 使用上下文对象，ChannelHandler可以在上游或下游传递事件，动态修改pipeline或存储特定于handler的信息（使用AttributeKeys）。
+ * ChannelHandler应该通过 context 对象与其所属的ChannelPipeline进行交互。
+ * 使用 context 对象，ChannelHandler可以在上游或下游传递事件，动态修改pipeline或存储特定于handler的信息（使用AttributeKeys）。
  *
  * 状态管理
  * ChannelHandler通常需要存储一些状态信息。推荐的最简单方法是使用成员变量：

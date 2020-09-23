@@ -55,7 +55,7 @@ public final class EchoServer {
         try {
             ServerBootstrap b = new ServerBootstrap();
             b.group(bossGroup, workerGroup)
-             .channel(NioServerSocketChannel.class)  // 这里可以替换成其他的ServerSocketChannel
+             .channel(NioServerSocketChannel.class)  // 这里可以替换成其他的 ServerSocketChannel
              .option(ChannelOption.SO_BACKLOG, 100)
              .handler(new LoggingHandler(LogLevel.INFO))  // 父handler
              .childHandler(new ChannelInitializer<SocketChannel>() {  // 子handler

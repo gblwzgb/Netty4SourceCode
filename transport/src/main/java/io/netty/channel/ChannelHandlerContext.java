@@ -98,6 +98,8 @@ import java.nio.channels.Channels;
  * 它们之间有哪些根本区别，它们如何在管道中流动以及如何在应用程序中处理该操作的更多信息。
  */
 
+// 该类大大增强了 handler 链的灵活性。
+
 /**
  * Enables a {@link ChannelHandler} to interact with its {@link ChannelPipeline}
  * and other handlers. Among other things a handler can notify the next {@link ChannelHandler} in the

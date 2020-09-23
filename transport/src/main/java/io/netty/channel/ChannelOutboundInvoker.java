@@ -187,6 +187,13 @@ public interface ChannelOutboundInvoker {
     ChannelFuture deregister(ChannelPromise promise);
 
     /**
+     * 请求从Channel读取数据到第一个入站缓冲区，如果读取了数据，
+     * 则触发ChannelInboundHandler.channelRead（ChannelHandlerContext，Object）事件，
+     * 并触发channelReadComplete事件，以便处理程序可以决定继续读取。
+     * 如果已经有一个待处理的读取操作，则此方法不执行任何操作。
+     * 这将导致Channel的ChannelPipeline中包含的下一个ChannelOutboundHandler调用ChannelOutboundHandler.read（ChannelHandlerContext）方法。
+     */
+    /**
      * Request to Read data from the {@link Channel} into the first inbound buffer, triggers an
      * {@link ChannelInboundHandler#channelRead(ChannelHandlerContext, Object)} event if data was
      * read, and triggers a

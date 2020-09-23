@@ -193,6 +193,7 @@ public class AdaptiveRecvByteBufAllocator extends DefaultMaxMessagesRecvByteBufA
     @SuppressWarnings("deprecation")
     @Override
     public Handle newHandle() {
+        // 64，65536，1024
         return new HandleImpl(minIndex, maxIndex, initial);
     }
 

@@ -56,6 +56,8 @@ public abstract class AbstractNioChannel extends AbstractChannel {
 
     // 底层的SocketChannel
     private final SelectableChannel ch;
+    // 子类决定，SelectionKey.OP_READ 或
+    // NioServerSocketChannel则是SelectionKey.OP_ACCEPT
     protected final int readInterestOp;
     volatile SelectionKey selectionKey;
     boolean readPending;
@@ -384,6 +386,7 @@ public abstract class AbstractNioChannel extends AbstractChannel {
         boolean selected = false;
         for (;;) {
             try {
+                // attach 设置为 netty channel。
                 selectionKey = javaChannel().register(eventLoop().unwrappedSelector(), 0, this);
                 return;
             } catch (CancelledKeyException e) {

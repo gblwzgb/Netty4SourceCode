@@ -474,6 +474,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             AbstractChannel.this.eventLoop = eventLoop;
 
             if (eventLoop.inEventLoop()) {
+                // 注册后，会触发激活(active)事件
                 register0(promise);
             } else {
                 try {
@@ -509,7 +510,8 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
                 // Ensure we call handlerAdded(...) before we actually notify the promise. This is needed as the
                 // user may already fire events through the pipeline in the ChannelFutureListener.
-                // 注册成功后，需要调用那些挂起的handler。（本来要执行handlerAdded(...)方法的，但是由于没有注册完成，所以handlerAdded(...)被延缓到现在执行）
+                // 注册成功后，需要调用那些挂起的handler。
+                // （本来要执行handlerAdded(...)方法的，但是由于没有注册完成，所以handlerAdded(...)被延缓到现在执行）
                 pipeline.invokeHandlerAddedIfNeeded();
 
                 // promise设置为成功，通知listener
@@ -520,6 +522,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 // multiple channel actives if the channel is deregistered and re-registered.
                 if (isActive()) {
                     if (firstRegistration) {
+                        // 该 channel 第一次被注册，触发激活事件，重要
                         pipeline.fireChannelActive();
                     } else if (config().isAutoRead()) {
                         // This channel was registered before and autoRead() is set. This means we need to begin read

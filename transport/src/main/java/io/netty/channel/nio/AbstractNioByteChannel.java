@@ -136,7 +136,9 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
                 return;
             }
             final ChannelPipeline pipeline = pipeline();
+            // ByteBuf 分配器
             final ByteBufAllocator allocator = config.getAllocator();
+            // 分配的处理器，决定怎么来分配
             final RecvByteBufAllocator.Handle allocHandle = recvBufAllocHandle();
             allocHandle.reset(config);
 
@@ -144,10 +146,14 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
             boolean close = false;
             try {
                 do {
+                    // 按一定的分配策略，使用分配器，分配一个 ByteBuf
                     byteBuf = allocHandle.allocate(allocator);
+                    // 1、从 socket 中读取字节到 byteBuf 中
+                    // 2、记录最后一次读取的字节数
                     allocHandle.lastBytesRead(doReadBytes(byteBuf));
                     if (allocHandle.lastBytesRead() <= 0) {
                         // nothing was read. release the buffer.
+                        // 没读到数据，释放 buffer
                         byteBuf.release();
                         byteBuf = null;
                         close = allocHandle.lastBytesRead() < 0;
@@ -160,11 +166,13 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
 
                     allocHandle.incMessagesRead(1);
                     readPending = false;
+                    // 触发一次【读】事件
                     pipeline.fireChannelRead(byteBuf);
                     byteBuf = null;
                 } while (allocHandle.continueReading());
 
                 allocHandle.readComplete();
+                // 触发一次【读完毕】事件
                 pipeline.fireChannelReadComplete();
 
                 if (close) {

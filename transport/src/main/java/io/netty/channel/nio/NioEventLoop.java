@@ -450,7 +450,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
                     } finally {
                         // Ensure we always run tasks.
                         final long ioTime = System.nanoTime() - ioStartTime;
-                        // 给你一定的时候，执行task。
+                        // 给你一定的时间，执行task。
                         runAllTasks(ioTime * (100 - ioRatio) / ioRatio);
                     }
                 }
@@ -634,6 +634,8 @@ public final class NioEventLoop extends SingleThreadEventLoop {
             // Also check for readOps of 0 to workaround possible JDK bug which may otherwise lead
             // to a spin loop
             if ((readyOps & (SelectionKey.OP_READ | SelectionKey.OP_ACCEPT)) != 0 || readyOps == 0) {
+                // 服务端的进入 NioMessageUnsafe
+                // 客户端的进入 NioByteUnsafe
                 unsafe.read();
             }
         } catch (CancelledKeyException ignored) {

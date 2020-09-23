@@ -280,7 +280,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
     }
 
     private ChannelFuture doBind(final SocketAddress localAddress) {
-        // 初始化，然后异步注册channel到selector上。
+        // 初始化，然后异步注册 channel 到 selector 上。
         final ChannelFuture regFuture = initAndRegister();
         final Channel channel = regFuture.channel();
         if (regFuture.cause() != null) {
@@ -323,6 +323,8 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
     final ChannelFuture initAndRegister() {
         Channel channel = null;
         try {
+            // 使用工厂 ReflectiveChannelFactory，创建一个指定的 channel 实例
+            // 实例化 channel 时，会在 AbstractChannel 中创建 pipeline 的实例：DefaultChannelPipeline
             channel = channelFactory.newChannel();
             // 初始化，做一些准备工作，由子类实现
             init(channel);
@@ -337,7 +339,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
             return new DefaultChannelPromise(new FailedChannel(), GlobalEventExecutor.INSTANCE).setFailure(t);
         }
 
-        // 异步注册，将底层channel注册到底层的Selector上。（Boss线程池）
+        // 异步注册，将底层 channel 注册到底层的 Selector 上。（Boss线程池）
         ChannelFuture regFuture = config().group().register(channel);
         if (regFuture.cause() != null) {
             if (channel.isRegistered()) {
