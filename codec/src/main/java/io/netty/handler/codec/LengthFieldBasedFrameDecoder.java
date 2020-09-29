@@ -184,9 +184,13 @@ import io.netty.handler.codec.serialization.ObjectDecoder;
 public class LengthFieldBasedFrameDecoder extends ByteToMessageDecoder {
 
     private final ByteOrder byteOrder;
+    // 最大的帧长度
     private final int maxFrameLength;
+    // 记录长度的字段的偏移量
     private final int lengthFieldOffset;
+    // 代表使用了几个字节，来记录字段的长度
     private final int lengthFieldLength;
+    // 记录长度的字段的结束偏移量，即 lengthFieldOffset + lengthFieldLength;
     private final int lengthFieldEndOffset;
     private final int lengthAdjustment;
     private final int initialBytesToStrip;
@@ -410,13 +414,17 @@ public class LengthFieldBasedFrameDecoder extends ByteToMessageDecoder {
         }
 
         if (in.readableBytes() < lengthFieldEndOffset) {
+            // 到这里说明，buffer不够完整，无法读出代表长度的那个字段。
             return null;
         }
 
+        // 实际的记录 frame 长度的，在 buffer 中的偏移量
         int actualLengthFieldOffset = in.readerIndex() + lengthFieldOffset;
+        // 读出帧的长度
         long frameLength = getUnadjustedFrameLength(in, actualLengthFieldOffset, lengthFieldLength, byteOrder);
 
         if (frameLength < 0) {
+            // 长度不能小于0，有问题，报错
             failOnNegativeLengthField(in, frameLength, lengthFieldEndOffset);
         }
 
@@ -427,6 +435,7 @@ public class LengthFieldBasedFrameDecoder extends ByteToMessageDecoder {
         }
 
         if (frameLength > maxFrameLength) {
+            // 超过最大帧的长度
             exceededFrameLength(in, frameLength);
             return null;
         }
@@ -440,6 +449,7 @@ public class LengthFieldBasedFrameDecoder extends ByteToMessageDecoder {
         if (initialBytesToStrip > frameLengthInt) {
             failOnFrameLengthLessThanInitialBytesToStrip(in, frameLength, initialBytesToStrip);
         }
+        // 需要跳过的字节数
         in.skipBytes(initialBytesToStrip);
 
         // extract frame
@@ -461,20 +471,25 @@ public class LengthFieldBasedFrameDecoder extends ByteToMessageDecoder {
     protected long getUnadjustedFrameLength(ByteBuf buf, int offset, int length, ByteOrder order) {
         buf = buf.order(order);
         long frameLength;
-        switch (length) {
+        switch (length) {  // 使用了几个字节来记录长度？
+            // 注意！！这里的get不会移动指针，如果会移动指针的话，对于initialBytesToStrip来说，还需要回退指针
         case 1:
+            // 1个字节，则使用byte读
             frameLength = buf.getUnsignedByte(offset);
             break;
         case 2:
+            // 2个字节，使用short读
             frameLength = buf.getUnsignedShort(offset);
             break;
         case 3:
             frameLength = buf.getUnsignedMedium(offset);
             break;
         case 4:
+            // 4个字节，使用int读
             frameLength = buf.getUnsignedInt(offset);
             break;
         case 8:
+            // 8个字节，使用long读
             frameLength = buf.getLong(offset);
             break;
         default:

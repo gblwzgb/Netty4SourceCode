@@ -55,6 +55,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
             new FastThreadLocal<Map<Class<?>, String>>() {
         @Override
         protected Map<Class<?>, String> initialValue() throws Exception {
+            // 每个线程，在使用这个 FastThreadLocal 的时候，都有一个独有的 WeakHashMap
             return new WeakHashMap<Class<?>, String>();
         }
     };

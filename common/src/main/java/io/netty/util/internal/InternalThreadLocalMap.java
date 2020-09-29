@@ -68,8 +68,10 @@ public final class InternalThreadLocalMap extends UnpaddedInternalThreadLocalMap
     public static InternalThreadLocalMap get() {
         Thread thread = Thread.currentThread();
         if (thread instanceof FastThreadLocalThread) {
+            // 获取 FastThreadLocalThread 线程中的 InternalThreadLocalMap
             return fastGet((FastThreadLocalThread) thread);
         } else {
+            // 从 ThreadLocal 中获取
             return slowGet();
         }
     }
@@ -77,16 +79,23 @@ public final class InternalThreadLocalMap extends UnpaddedInternalThreadLocalMap
     private static InternalThreadLocalMap fastGet(FastThreadLocalThread thread) {
         InternalThreadLocalMap threadLocalMap = thread.threadLocalMap();
         if (threadLocalMap == null) {
+            // 到这里说明该线程的 InternalThreadLocalMap 还没创建，创建一个设置到线程中。
             thread.setThreadLocalMap(threadLocalMap = new InternalThreadLocalMap());
         }
         return threadLocalMap;
     }
 
     private static InternalThreadLocalMap slowGet() {
+        // 到这里说明线程没有继承 FastThreadLocalThread，是一个普通的线程
         ThreadLocal<InternalThreadLocalMap> slowThreadLocalMap = UnpaddedInternalThreadLocalMap.slowThreadLocalMap;
+        // 从这个线程中的 ThreadLocalMap 中，取出关联的 InternalThreadLocalMap
+        // key 是 UnpaddedInternalThreadLocalMap.slowThreadLocalMap
+        // value 是关联的 InternalThreadLocalMap
         InternalThreadLocalMap ret = slowThreadLocalMap.get();
         if (ret == null) {
+            // 没有设置过
             ret = new InternalThreadLocalMap();
+            // 设置一个
             slowThreadLocalMap.set(ret);
         }
         return ret;
@@ -105,6 +114,7 @@ public final class InternalThreadLocalMap extends UnpaddedInternalThreadLocalMap
         slowThreadLocalMap.remove();
     }
 
+    // 获取下一个变量的索引
     public static int nextVariableIndex() {
         int index = nextIndex.getAndIncrement();
         if (index < 0) {
@@ -289,14 +299,23 @@ public final class InternalThreadLocalMap extends UnpaddedInternalThreadLocalMap
 
     /**
      * @return {@code true} if and only if a new thread-local variable has been created
+     * 当且仅当创建了新的线程局部变量时才返回true
      */
     public boolean setIndexedVariable(int index, Object value) {
+        // 存放变量的数组
         Object[] lookup = indexedVariables;
-        if (index < lookup.length) {
+        if (index < lookup.length) {  // 空间是够得
+            // 获取老值
             Object oldValue = lookup[index];
+            // 设置新值
             lookup[index] = value;
+            // 判断老值是不是没设置
             return oldValue == UNSET;
         } else {
+            // 数组不够了，需要对数组进行扩容
+            // 扩容后会：
+            // 1、把新增的位置设置成 UNSET。
+            // 2、设置变量值到 index 位置
             expandIndexedVariableTableAndSet(index, value);
             return true;
         }
@@ -306,6 +325,7 @@ public final class InternalThreadLocalMap extends UnpaddedInternalThreadLocalMap
         Object[] oldArray = indexedVariables;
         final int oldCapacity = oldArray.length;
         int newCapacity = index;
+        // 扩容成2的N次，这个和 HashMap 的扩容计算方式是一样的好像
         newCapacity |= newCapacity >>>  1;
         newCapacity |= newCapacity >>>  2;
         newCapacity |= newCapacity >>>  4;
@@ -313,9 +333,13 @@ public final class InternalThreadLocalMap extends UnpaddedInternalThreadLocalMap
         newCapacity |= newCapacity >>> 16;
         newCapacity ++;
 
+        // 将老数组的内容，拷贝到新的数组里
         Object[] newArray = Arrays.copyOf(oldArray, newCapacity);
+        // 填充空白位置为 UNSET 。
         Arrays.fill(newArray, oldCapacity, newArray.length, UNSET);
+        // 设置新值
         newArray[index] = value;
+        // 替换成扩容后的新数组的指针
         indexedVariables = newArray;
     }
 

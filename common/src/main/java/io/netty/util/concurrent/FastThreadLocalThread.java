@@ -25,6 +25,7 @@ public class FastThreadLocalThread extends Thread {
     // This will be set to true if we have a chance to wrap the Runnable.
     private final boolean cleanupFastThreadLocals;
 
+    // 每个线程独有，类似 ThreadLocal 的 ThreadLocalMap
     private InternalThreadLocalMap threadLocalMap;
 
     public FastThreadLocalThread() {

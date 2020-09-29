@@ -23,6 +23,9 @@ import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
  * Default {@link AttributeMap} implementation which use simple synchronization per bucket to keep the memory overhead
  * as low as possible.
  */
+    // 数组 + 链表结构的 Map，只有 4 个槽位（BUCKET_SIZE）。
+    // 使用 AtomicReferenceArray 来做为数组，这个 AtomicReferenceArray 用处是它支持 cas 来改变槽位的值。
+    // 每个 Context 上下文，都有这么一个 Map，定义一个静态的 AttributeKey，大家共同使用，这样就做到了，同一个 handler 的属性隔离。（看 ChannelHandlerContext 类注释中的 demo）
 public class DefaultAttributeMap implements AttributeMap {
 
     @SuppressWarnings("rawtypes")
@@ -45,8 +48,10 @@ public class DefaultAttributeMap implements AttributeMap {
         AtomicReferenceArray<DefaultAttribute<?>> attributes = this.attributes;
         if (attributes == null) {
             // Not using ConcurrentHashMap due to high memory consumption.
+            // 由于占用大量内存，因此不使用ConcurrentHashMap。
             attributes = new AtomicReferenceArray<DefaultAttribute<?>>(BUCKET_SIZE);
 
+            // cas 设置，无锁
             if (!updater.compareAndSet(this, null, attributes)) {
                 attributes = this.attributes;
             }
@@ -74,15 +79,19 @@ public class DefaultAttributeMap implements AttributeMap {
             for (;;) {
                 DefaultAttribute<?> next = curr.next;
                 if (next == null) {
+                    // 没有找到 key 对应的 DefaultAttribute，新建一个
                     DefaultAttribute<T> attr = new DefaultAttribute<T>(head, key);
+                    // 加到链表的队尾
                     curr.next = attr;
                     attr.prev = curr;
                     return attr;
                 }
 
                 if (next.key == key && !next.removed) {
+                    // 找到了
                     return (Attribute<T>) next;
                 }
+                // 继续遍历
                 curr = next;
             }
         }

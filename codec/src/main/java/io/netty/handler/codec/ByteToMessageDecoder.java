@@ -256,10 +256,15 @@ public abstract class ByteToMessageDecoder extends ChannelInboundHandlerAdapter 
             CodecOutputList out = CodecOutputList.newInstance();
             try {
                 ByteBuf data = (ByteBuf) msg;
+                // 如果 cumulation 为 null，表示还没有累积过，就是 first
                 first = cumulation == null;
                 if (first) {
+                    // 第一次，data直接用作累积值
                     cumulation = data;
                 } else {
+                    // 默认是 MERGE_CUMULATOR，分配一个新的 ByteBuf，并把 data 中的数据，写入新的 ByteBuf 中。
+                    // 如果新分配的 ByteBuf 写不下，就扩容。
+                    // 这是一个累积的过程。
                     cumulation = cumulator.cumulate(ctx.alloc(), cumulation, data);
                 }
                 callDecode(ctx, cumulation, out);
@@ -407,10 +412,13 @@ public abstract class ByteToMessageDecoder extends ChannelInboundHandlerAdapter 
     protected void callDecode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) {
         try {
             while (in.isReadable()) {
+                // 目前 decode 出的 message 数量
                 int outSize = out.size();
 
                 if (outSize > 0) {
+                    // 有解码出的 msg 了，先传递给下一个 handler 继续处理。
                     fireChannelRead(ctx, out, outSize);
+                    // 清除处理后的 msg。
                     out.clear();
 
                     // Check if this handler was removed before continuing with decoding.
@@ -424,6 +432,7 @@ public abstract class ByteToMessageDecoder extends ChannelInboundHandlerAdapter 
                     outSize = 0;
                 }
 
+                // 快照一下当前的可读字节数
                 int oldInputLength = in.readableBytes();
                 decodeRemovalReentryProtection(ctx, in, out);
 
@@ -435,8 +444,11 @@ public abstract class ByteToMessageDecoder extends ChannelInboundHandlerAdapter 
                     break;
                 }
 
-                if (outSize == out.size()) {
-                    if (oldInputLength == in.readableBytes()) {
+                if (outSize == out.size()) {  // 原 msg 长度 = 解码完的 msg 长度，说明没有解码出一个完成的包
+                    if (oldInputLength == in.readableBytes()) {  // 原可读字节数 = 解码后可读字节数，说明没有解码出一个完成的包
+                        /** 这步很重要，处理半包问题。需要解码方，将指针拨回到读之前的位置，否则无法处理半包问题
+                         * 见DUBBO：com.alibaba.dubbo.remoting.transport.netty4.NettyCodecAdapter.InternalDecoder#decode */
+                        // 退出循环，等待 socket 的数据包过来后累积成一个新的 ByteBuf 再去试。
                         break;
                     } else {
                         continue;
@@ -444,12 +456,13 @@ public abstract class ByteToMessageDecoder extends ChannelInboundHandlerAdapter 
                 }
 
                 if (oldInputLength == in.readableBytes()) {
+                    // 到这里说明，解码出了 msg，但是可读字节数没变，那就可以理解成凭空捏造了一个 msg。。看下面的异常描述也能看出来
                     throw new DecoderException(
                             StringUtil.simpleClassName(getClass()) +
                                     ".decode() did not read anything but decoded a message.");
                 }
 
-                if (isSingleDecode()) {
+                if (isSingleDecode()) {  // 只解码一次，默认 false
                     break;
                 }
             }
