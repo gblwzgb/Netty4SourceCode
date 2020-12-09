@@ -1572,6 +1572,7 @@ public class ReferenceCountedOpenSslEngine extends SSLEngine implements Referenc
             keyMaterialManager.setKeyMaterialServerSide(this);
         }
 
+        // 调用 C 完成 SSL 握手
         int code = SSL.doHandshake(ssl);
         if (code <= 0) {
             // Check if we have a pending exception that was created during the handshake and if so throw it after

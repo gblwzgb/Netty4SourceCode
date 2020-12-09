@@ -36,6 +36,7 @@ public class PooledByteBufAllocator extends AbstractByteBufAllocator implements 
     private static final int DEFAULT_NUM_HEAP_ARENA;
     private static final int DEFAULT_NUM_DIRECT_ARENA;
 
+    // page 默认 8K
     private static final int DEFAULT_PAGE_SIZE;
     private static final int DEFAULT_MAX_ORDER; // 8192 << 11 = 16 MiB per chunk
     private static final int DEFAULT_TINY_CACHE_SIZE;
@@ -150,6 +151,9 @@ public class PooledByteBufAllocator extends AbstractByteBufAllocator implements 
     private final List<PoolArenaMetric> heapArenaMetrics;
     private final List<PoolArenaMetric> directArenaMetrics;
     private final PoolThreadLocalCache threadCache;
+    // 默认 16M，根据 page 大小（pageSize），满二叉树的层数推算出来的。
+    // pageSize << 1 << 1 << 1 << 1....  越上层，越大，到最顶层就是 pageSize 了。
+    // 这里的二叉树，两个子节点相加 = 父节点。子节点是平均分的。
     private final int chunkSize;
     private final PooledByteBufAllocatorMetric metric;
 
@@ -267,12 +271,15 @@ public class PooledByteBufAllocator extends AbstractByteBufAllocator implements 
         return new PoolArena[size];
     }
 
+    // 默认 13
     private static int validateAndCalculatePageShifts(int pageSize) {
         if (pageSize < MIN_PAGE_SIZE) {
+            // 不能小于 4K
             throw new IllegalArgumentException("pageSize: " + pageSize + " (expected: " + MIN_PAGE_SIZE + ")");
         }
 
         if ((pageSize & pageSize - 1) != 0) {
+            // 不是 2的幂次
             throw new IllegalArgumentException("pageSize: " + pageSize + " (expected: power of 2)");
         }
 
@@ -281,6 +288,7 @@ public class PooledByteBufAllocator extends AbstractByteBufAllocator implements 
     }
 
     private static int validateAndCalculateChunkSize(int pageSize, int maxOrder) {
+        // maxOrder 默认 11
         if (maxOrder > 14) {
             throw new IllegalArgumentException("maxOrder: " + maxOrder + " (expected: 0-14)");
         }
@@ -299,13 +307,17 @@ public class PooledByteBufAllocator extends AbstractByteBufAllocator implements 
 
     @Override
     protected ByteBuf newHeapBuffer(int initialCapacity, int maxCapacity) {
+        // 从 ThreadLocal 中取出当前线程关联的 PoolThreadCache
         PoolThreadCache cache = threadCache.get();
+        // 当前线程关联的 PoolArena
         PoolArena<byte[]> heapArena = cache.heapArena;
 
         final ByteBuf buf;
         if (heapArena != null) {
+            // 通过 PoolArena 分配内存
             buf = heapArena.allocate(cache, initialCapacity, maxCapacity);
         } else {
+            // 直接分配内存？
             buf = PlatformDependent.hasUnsafe() ?
                     new UnpooledUnsafeHeapByteBuf(this, initialCapacity, maxCapacity) :
                     new UnpooledHeapByteBuf(this, initialCapacity, maxCapacity);

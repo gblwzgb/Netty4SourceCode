@@ -30,6 +30,188 @@ import java.nio.charset.Charset;
 import java.nio.charset.UnsupportedCharsetException;
 
 /**
+ * 零个或多个字节（八位字节）的随机且顺序可访问的序列。
+ * 该接口提供了一个或多个原始字节数组（byte[]）和 NIO buffers 的抽象视图。
+ *
+ * <h3>创建缓冲区</h3>
+ *
+ * 建议在 Unpooled 中使用辅助方法创建一个新的缓冲区，而不是调用单个实现的构造函数。
+ *
+ * <h3>Random Access Indexing</h3>  （随机访问索引）
+ *
+ * 就像普通的原始字节数组一样，ByteBuf使用基于零的索引。
+ * 这意味着第一个字节的索引始终为0，最后一个字节的索引始终为 capacity-1。
+ * 例如，要迭代（iterate）缓冲区的所有字节，无论其内部实现如何，您都可以执行以下操作：
+ *
+ * <pre>
+     ByteBuf buffer = ...;
+     for (int i = 0; i < buffer.capacity(); i ++) {
+         byte b = buffer.getByte(i);
+         System.out.println((char) b);
+     }
+ * </pre>
+ *
+ * <h3>Sequential Access Indexing</h3>  （顺序访问索引）
+ *
+ * ByteBuf提供了两个指针变量来支持顺序的读和写操作 - 分别用于读操作的readerIndex和用于写操作的writerIndex。
+ * 下图显示了如何通过两个指针将缓冲区划分为三个区域：
+ *
+ * <pre>
+ *      +-------------------+------------------+------------------+
+ *      | discardable bytes |  readable bytes  |  writable bytes  |
+ *      |                   |     (CONTENT)    |                  |
+ *      +-------------------+------------------+------------------+
+ *      |                   |                  |                  |
+ *      0      <=      readerIndex   <=   writerIndex    <=    capacity
+ * </pre>
+ *
+ * <h4>Readable bytes (the actual content)</h4>  （可读字节（实际内容））
+ *
+ * 该段是实际数据的存储位置。
+ * 名称以“read”或“skip”开头的任何操作都将获取或跳过当前readerIndex处的数据，并将其增加读取字节数。
+ * 如果读取操作的参数也是ByteBuf并且未指定目标索引，则指定缓冲区的writerIndex会一起增加。
+ * <p>
+ * 如果没有足够的内容，则会引发IndexOutOfBoundsException。
+ * 新分配，包装或复制的缓冲区的readerIndex的默认值为0。
+ *
+ * <pre>
+     // Iterates the readable bytes of a buffer.
+     ByteBuf buffer = ...;
+     while (buffer.isReadable()) {
+        System.out.println(buffer.readByte());
+     }
+ * </pre>
+ *
+ * <h4>Writable bytes</h4>  （可写字节）
+ *
+ * 该段是未定义的空间，需要填充。
+ * 名称以write开头的任何操作都将在当前writerIndex处写入数据，并将其增加写入字节数。
+ * 如果写操作的参数也是ByteBuf，并且未指定源索引，则指定缓冲区的readerIndex会一起增加。
+ * <p>
+ * 如果剩余的可写字节不足，则会引发IndexOutOfBoundsException。
+ * 新分配的缓冲区的writerIndex的默认值为0。
+ * 包装或复制的缓冲区的writerIndex的默认值为缓冲区的容量。
+ *
+ * <pre>
+     // 用随机整数填充缓冲区的可写字节。
+     ByteBuf buffer = ...;
+     while (buffer.maxWritableBytes() >= 4) {
+        buffer.writeInt(random.nextInt());
+     }
+ * </pre>
+ *
+ * <h4>Discardable bytes</h4>  （可丢弃的字节）
+ *
+ * 该段包含已由读取操作读取的字节。
+ * 最初，此段的大小为0，但随着执行读取操作，其大小增加到writerIndex。
+ * 可以通过调用discardReadBytes()来回收读取的字节，如下图所示：
+ *
+ * <pre>
+ *  BEFORE discardReadBytes()
+ *
+ *      +-------------------+------------------+------------------+
+ *      | discardable bytes |  readable bytes  |  writable bytes  |
+ *      +-------------------+------------------+------------------+
+ *      |                   |                  |                  |
+ *      0      <=      readerIndex   <=   writerIndex    <=    capacity
+ *
+ *
+ *  AFTER discardReadBytes()
+ *
+ *      +------------------+--------------------------------------+
+ *      |  readable bytes  |    writable bytes (got more space)   |
+ *      +------------------+--------------------------------------+
+ *      |                  |                                      |
+ * readerIndex (0) <= writerIndex (decreased)        <=        capacity
+ * </pre>
+ *
+ * 请注意，调用 discardReadBytes() 后，无法保证可写字节的内容。
+ * 在大多数情况下，可写字节将不会移动，甚至可能会根据基础缓冲区的实现而用完全不同的数据填充。
+ *
+ * <h4>Clearing the buffer indexes</h4>  （清除缓冲区索引）
+ *
+ * 您可以通过调用 clear() 将readerIndex和writerIndex都设置为0。
+ * 它不会清除缓冲区内容（例如填充0），而只是清除两个指针。
+ * 另请注意，此操作的语义与 ByteBuffer.clear() 不同。
+ *
+ * <pre>
+ *  BEFORE clear()
+ *
+ *      +-------------------+------------------+------------------+
+ *      | discardable bytes |  readable bytes  |  writable bytes  |
+ *      +-------------------+------------------+------------------+
+ *      |                   |                  |                  |
+ *      0      <=      readerIndex   <=   writerIndex    <=    capacity
+ *
+ *
+ *  AFTER clear()
+ *
+ *      +---------------------------------------------------------+
+ *      |             writable bytes (got more space)             |
+ *      +---------------------------------------------------------+
+ *      |                                                         |
+ *      0 = readerIndex = writerIndex            <=            capacity
+ * </pre>
+ *
+ * <h3>Search operations</h3>  （搜索操作）
+ *
+ * 对于简单的单字节搜索，请使用 indexOf(int，int，byte) 和 bytesBefore(int，int，byte)。
+ * 当处理以NUL结尾的字符串时，bytesBefore(byte)特别有用。
+ * 对于复杂的搜索，请将 forEachByte(int，int，ByteProcessor) 与 ByteProcessor 实现一起使用。
+ *
+ * <h3>Mark and reset</h3>  （标记并重置）
+ *
+ * 每个缓冲区中都有两个 marker 索引。
+ * 一种用于存储readerIndex，另一种用于存储writerIndex。
+ * 您始终可以通过调用reset方法来重新定位两个索引之一。
+ * 除了没有 readlimit 以外，它的工作方式与InputStream中的mark和reset方法类似。
+ *
+ * <h3>Derived buffers</h3>  （派生缓冲区）
+ *
+ * 您可以通过调用以下方法之一来创建现有缓冲区的视图：
+ * <ul>
+ *   <li>{@link #duplicate()}</li>
+ *   <li>{@link #slice()}</li>
+ *   <li>{@link #slice(int, int)}</li>
+ *   <li>{@link #readSlice(int)}</li>
+ *   <li>{@link #retainedDuplicate()}</li>
+ *   <li>{@link #retainedSlice()}</li>
+ *   <li>{@link #retainedSlice(int, int)}</li>
+ *   <li>{@link #readRetainedSlice(int)}</li>
+ * </ul>
+ * 派生的缓冲区将具有独立的readerIndex，writerIndex和 marker 索引，而它共享其他内部数据表示形式，就像NIO缓冲区一样。
+ * <p>
+ * 如果需要现有缓冲区的完整副本，请调用 copy() 方法。
+ *
+ * <h4>Non-retained and retained derived buffers</h4>  （非保留和保留派生缓冲区）
+ *
+ * 请注意，duplicate()，slice()，slice(int，int)和readSlice(int)不会在返回的派生缓冲区上调用retain()，因此不会增加其引用计数。
+ * 如果您需要创建具有增加的引用计数的派生缓冲区，
+ * 请考虑使用reservedDuplicate()，retainedSlice()，retainedSlice(int，int)和readRetainedSlice(int)，
+ * 这可能会返回产生较少垃圾的缓冲区实现。
+ *
+ * <h3>Conversion to existing JDK types</h3>  （转换为现有的JDK类型）
+ *
+ * <h4>Byte array</h4>  （字节数组）
+ *
+ * 如果ByteBuf由字节数组（即byte[]）支持，则可以直接通过array()方法访问它。
+ * 要确定缓冲区是否由字节数组支持，应使用hasArray()。
+ *
+ * <h4>NIO Buffers</h4>
+ *
+ * 如果ByteBuf可以转换为共享其内容的NIO ByteBuffer（即视图缓冲区），则可以通过nioBuffer()方法获取它。
+ * 要确定是否可以将缓冲区转换为NIO缓冲区，请使用nioBufferCount()。
+ *
+ * <h4>Strings</h4>
+ *
+ * 各种 toString(Charset) 方法将ByteBuf转换为String。请注意，toString() 不是转换方法。
+ *
+ * <h4>I/O Streams</h4>
+ *
+ * 请参考 ByteBufInputStream 和 ByteBufOutputStream。
+ */
+
+/**
  * A random and sequential accessible sequence of zero or more bytes (octets).
  * This interface provides an abstract view for one or more primitive byte
  * arrays ({@code byte[]}) and {@linkplain ByteBuffer NIO buffers}.

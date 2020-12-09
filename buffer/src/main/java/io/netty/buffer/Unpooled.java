@@ -24,7 +24,44 @@ import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+/**
+ * 通过分配新空间或通过包装或复制现有的 byte arrays, byte buffers and a string 来创建新的ByteBuf。
+ *
+ * <h3>Use static import</h3>  （使用静态导包）
+ * 此类旨在与Java 5静态import语句一起使用：
+ *
+ * <pre>
+     import static io.netty.buffer.Unpooled.*;
 
+     ByteBuf heapBuffer    = buffer(128);
+     ByteBuf directBuffer  = directBuffer(256);
+     ByteBuf wrappedBuffer = wrappedBuffer(new byte[128], new byte[256]);
+     ByteBuf copiedBuffer  = copiedBuffer(ByteBuffer.allocate(128));
+ * </pre>
+ *
+ * <h3>Allocating a new buffer</h3>  （分配一个新的缓冲区）
+ *
+ * 提供了三种开箱即用的缓冲区类型。
+ *
+ * <ul>
+     buffer(int)： 分配一个新的固定容量堆缓冲区。
+     directBuffer(int)： 分配一个新的固定容量直接缓冲区。
+ * </ul>
+ *
+ * <h3>Creating a wrapped buffer</h3>  （创建包装的缓冲区）
+ *
+ * 包装缓冲区是一种缓冲区，它是一个或多个现有字节数组和字节缓冲区的视图。
+ * 原始数组或缓冲区内容的任何更改都将在包装的缓冲区中可见。
+ * 提供了各种包装器方法，它们的名称全为wrappedBuffer()。
+ * 如果要创建一个缓冲区，该缓冲区由多个数组组成，以减少内存副本的数量，则可能需要仔细研究一下接受varargs的方法。
+ *
+ * <h3>Creating a copied buffer</h3>  （创建一个拷贝的缓冲区）
+ *
+ * 复制缓冲区是一个或多个现有字节数组，字节缓冲区或字符串的深层副本。
+ * 与包装的缓冲区不同，原始数据和复制的缓冲区之间没有共享数据。
+ * 提供了各种复制方法，它们的名称全为 copyedBuffer()。
+ * 使用此操作将多个缓冲区合并为一个缓冲区也很方便。
+ */
 
 /**
  * Creates a new {@link ByteBuf} by allocating new space or by wrapping

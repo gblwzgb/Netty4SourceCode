@@ -28,6 +28,7 @@ import static java.lang.Math.*;
 final class PoolChunkList<T> implements PoolChunkListMetric {
     private static final Iterator<PoolChunkMetric> EMPTY_METRICS = Collections.<PoolChunkMetric>emptyList().iterator();
     private final PoolArena<T> arena;
+    // 双向链表，next节点
     private final PoolChunkList<T> nextList;
     private final int minUsage;
     private final int maxUsage;
@@ -35,6 +36,7 @@ final class PoolChunkList<T> implements PoolChunkListMetric {
     private PoolChunk<T> head;
 
     // This is only update once when create the linked like list of PoolChunkList in PoolArena constructor.
+    // 双向链表，prev节点
     private PoolChunkList<T> prevList;
 
     // TODO: Test if adding padding helps under contention
@@ -74,8 +76,11 @@ final class PoolChunkList<T> implements PoolChunkListMetric {
         this.prevList = prevList;
     }
 
+    // 分配内存
     boolean allocate(PooledByteBuf<T> buf, int reqCapacity, int normCapacity) {
         if (head == null || normCapacity > maxCapacity) {
+            // PoolChunk 不存在，或者申请的空间太大。
+
             // Either this PoolChunkList is empty or the requested capacity is larger then the capacity which can
             // be handled by the PoolChunks that are contained in this PoolChunkList.
             return false;
@@ -138,6 +143,7 @@ final class PoolChunkList<T> implements PoolChunkListMetric {
 
     void add(PoolChunk<T> chunk) {
         if (chunk.usage() >= maxUsage) {
+            // 如果 chunk 的使用率过高了，交给下一个 PoolChunkList 处理，这里可能要递归传递很多次
             nextList.add(chunk);
             return;
         }
@@ -147,7 +153,9 @@ final class PoolChunkList<T> implements PoolChunkListMetric {
     /**
      * Adds the {@link PoolChunk} to this {@link PoolChunkList}.
      */
+    // 添加 PoolChunk
     void add0(PoolChunk<T> chunk) {
+        // PoolChunk 双向链表的结构，每次都是往头节点插。
         chunk.parent = this;
         if (head == null) {
             head = chunk;
@@ -161,6 +169,7 @@ final class PoolChunkList<T> implements PoolChunkListMetric {
         }
     }
 
+    // PoolChunk 的移出
     private void remove(PoolChunk<T> cur) {
         if (cur == head) {
             head = cur.next;

@@ -114,6 +114,7 @@ final class PoolChunk<T> implements PoolChunkMetric {
     /** Used to determine if the requested capacity is equal to or greater than pageSize. */
     private final int subpageOverflowMask;
     private final int pageSize;
+    // 默认 13
     private final int pageShifts;
     private final int maxOrder;
     private final int chunkSize;
@@ -124,6 +125,7 @@ final class PoolChunk<T> implements PoolChunkMetric {
 
     private int freeBytes;
 
+    // 当前 PoolChunk 在哪个 PoolChunkList 中
     PoolChunkList<T> parent;
     PoolChunk<T> prev;
     PoolChunk<T> next;
@@ -140,32 +142,44 @@ final class PoolChunk<T> implements PoolChunkMetric {
         this.maxOrder = maxOrder;
         this.chunkSize = chunkSize;
         this.offset = offset;
+        // 默认12
         unusable = (byte) (maxOrder + 1);
         log2ChunkSize = log2(chunkSize);
         subpageOverflowMask = ~(pageSize - 1);
         freeBytes = chunkSize;
 
         assert maxOrder < 30 : "maxOrder should be < 30, but is: " + maxOrder;
+        // 1^11次，总共12层，往下括了11层。计算结果2048，叶子节点是2048个。
         maxSubpageAllocs = 1 << maxOrder;
 
         // Generate the memory map.
+        // 叶子节点 + 非叶子节点，需要4095个格子，这里初始化 4096 个。
+        // 满二叉树的结构~
         memoryMap = new byte[maxSubpageAllocs << 1];
+        // 大小和 memoryMap 一样
         depthMap = new byte[memoryMap.length];
+        // 前面不是多出一个格子吗，这里直接把索引为0的那个格子舍弃、忽略掉。
         int memoryMapIndex = 1;
+        // d表示第几层
         for (int d = 0; d <= maxOrder; ++ d) { // move down the tree one level at a time
+            // 每层要设置几个格子，比如第一层是1个格子，第二层是2个，第三次是4个，依次是8、16、32
             int depth = 1 << d;
             for (int p = 0; p < depth; ++ p) {
                 // in each level traverse left to right and set value to the depth of subtree
+                // 设置所在层数
                 memoryMap[memoryMapIndex] = (byte) d;
                 depthMap[memoryMapIndex] = (byte) d;
                 memoryMapIndex ++;
             }
         }
+        // 设置完之后数组中就是 00112222333333334444444444444444....
 
+        // 2048个叶子节点，也就是这里的 subpage
         subpages = newSubpageArray(maxSubpageAllocs);
     }
 
     /** Creates a special chunk that is not pooled. */
+    // 创建一个非池化的 chunk
     PoolChunk(PoolArena<T> arena, T memory, int size, int offset) {
         unpooled = true;
         this.arena = arena;
@@ -211,9 +225,10 @@ final class PoolChunk<T> implements PoolChunkMetric {
     }
 
     long allocate(int normCapacity) {
+        // >= 8K，超过一个 page 了
         if ((normCapacity & subpageOverflowMask) != 0) { // >= pageSize
             return allocateRun(normCapacity);
-        } else {
+        } else {  // 小于一个 page
             return allocateSubpage(normCapacity);
         }
     }
@@ -273,14 +288,17 @@ final class PoolChunk<T> implements PoolChunkMetric {
     private int allocateNode(int d) {
         int id = 1;
         int initial = - (1 << d); // has last d bits = 0 and rest all = 1
+        // 从 memoryMap 中取出这个位子的值。
         byte val = value(id);
         if (val > d) { // unusable
+            // 最顶层的节点都不可用了
             return -1;
         }
         while (val < d || (id & initial) == 0) { // id & initial == 1 << d for all ids at depth d, for < d it is 0
             id <<= 1;
             val = value(id);
             if (val > d) {
+                // ^ 异或：两个位相同为0，相异为1
                 id ^= 1;
                 val = value(id);
             }
@@ -288,7 +306,9 @@ final class PoolChunk<T> implements PoolChunkMetric {
         byte value = value(id);
         assert value == d && (id & initial) == 1 << d : String.format("val = %d, id & initial = %d, d = %d",
                 value, id & initial, d);
+        // unusable 默认 12
         setValue(id, unusable); // mark as unusable
+        // 更新父节点
         updateParentsAlloc(id);
         return id;
     }
@@ -300,6 +320,8 @@ final class PoolChunk<T> implements PoolChunkMetric {
      * @return index in memoryMap
      */
     private long allocateRun(int normCapacity) {
+        // 计算层数，当申请 8KB 时，d=11。
+        // 当申请 16KB 时，d=10。
         int d = maxOrder - (log2(normCapacity) - pageShifts);
         int id = allocateNode(d);
         if (id < 0) {
@@ -319,8 +341,10 @@ final class PoolChunk<T> implements PoolChunkMetric {
     private long allocateSubpage(int normCapacity) {
         // Obtain the head of the PoolSubPage pool that is owned by the PoolArena and synchronize on it.
         // This is need as we may add it back and so alter the linked-list structure.
+        // 这个请求大小，在 subpage 数组中的head
         PoolSubpage<T> head = arena.findSubpagePoolHead(normCapacity);
         synchronized (head) {
+            // 从叶子节点中，找出一个空闲的 page 节点（subpage是page的更近一层的细分）
             int d = maxOrder; // subpages are only be allocated from pages i.e., leaves
             int id = allocateNode(d);
             if (id < 0) {
