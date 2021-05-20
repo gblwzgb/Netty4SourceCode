@@ -161,6 +161,7 @@ public abstract class Recycler<T> {
         DefaultHandle<T> handle = stack.pop();
         if (handle == null) {
             handle = stack.newHandle();
+            // 创建一个新对象，并放到 DefaultHandle 中。
             handle.value = newObject(handle);
         }
         return (T) handle.value;
@@ -198,6 +199,7 @@ public abstract class Recycler<T> {
         void recycle(T object);
     }
 
+    // 用于包装真实对象
     static final class DefaultHandle<T> implements Handle<T> {
         private int lastRecycledId;
         private int recycleId;
@@ -582,9 +584,11 @@ public abstract class Recycler<T> {
         void push(DefaultHandle<?> item) {
             Thread currentThread = Thread.currentThread();
             if (threadRef.get() == currentThread) {
+                // 这个对象是属于当前线程的。
                 // The current Thread is the thread that belongs to the Stack, we can try to push the object now.
                 pushNow(item);
             } else {
+                // 这个对象被其他线程拿到了，他来归还。
                 // The current Thread is not the one that belongs to the Stack
                 // (or the Thread that belonged to the Stack was collected already), we need to signal that the push
                 // happens later.
@@ -600,13 +604,16 @@ public abstract class Recycler<T> {
 
             int size = this.size;
             if (size >= maxCapacity || dropHandle(item)) {
+                // 大于最大容量了，或者抛弃成功了，则返回。
                 // Hit the maximum capacity or should drop - drop the possibly youngest object.
                 return;
             }
             if (size == elements.length) {
+                // 扩容
                 elements = Arrays.copyOf(elements, min(size << 1, maxCapacity));
             }
 
+            // 设置值
             elements[size] = item;
             this.size = size + 1;
         }
@@ -616,18 +623,22 @@ public abstract class Recycler<T> {
             // so we null it out; to ensure there are no races with restoring it later
             // we impose a memory ordering here (no-op on x86)
             Map<Stack<?>, WeakOrderQueue> delayedRecycled = DELAYED_RECYCLED.get();
+            // 取出当前 Stack 对应的 WeakOrderQueue
             WeakOrderQueue queue = delayedRecycled.get(this);
             if (queue == null) {
                 if (delayedRecycled.size() >= maxDelayedQueues) {
+                    // 超出延迟队列的容量了
                     // Add a dummy queue so we know we should drop the object
                     delayedRecycled.put(this, WeakOrderQueue.DUMMY);
                     return;
                 }
                 // Check if we already reached the maximum number of delayed queues and if we can allocate at all.
+                // 分配一个 WeakOrderQueue
                 if ((queue = WeakOrderQueue.allocate(this, thread)) == null) {
                     // drop object
                     return;
                 }
+                // 放入 Map 缓存
                 delayedRecycled.put(this, queue);
             } else if (queue == WeakOrderQueue.DUMMY) {
                 // drop object
